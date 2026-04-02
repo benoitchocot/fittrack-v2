@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PORT: 3001
+      NODE_ENV: production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.muscuv2.rule=Host(`apimuscuv2.chocot.be`)"
+      - "traefik.http.routers.muscuv2.entrypoints=http"
+      - "traefik.http.services.muscuv2.loadbalancer.server.port=3001"
+      - "traefik.http.routers.muscuv2.service=muscuv2"
+    networks:
+      - default
+      - traefik_network
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+      args:
+        - VITE_API_URL=https://apimuscuv2.chocot.be
+    restart: unless-stopped
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.muscuv2-front.rule=Host(`muscuv2.chocot.be`)"
+      - "traefik.http.routers.muscuv2-front.entrypoints=http"
+      - "traefik.http.services.muscuv2-front.loadbalancer.server.port=80"
+    networks:
+      - default
+      - traefik_network
+
+volumes:
+  postgres_prod_data:
+
+networks:
+  traefik_network:
+    external: true

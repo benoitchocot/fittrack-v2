@@ -1,0 +1,92 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int               @id @default(autoincrement())
+  email         String            @unique
+  passwordHash  String
+  name          String
+  createdAt     DateTime          @default(now())
+  sessions      WorkoutSession[]
+  refreshTokens RefreshToken[]
+  templates     WorkoutTemplate[]
+}
+
+model WorkoutTemplate {
+  id        Int                      @id @default(autoincrement())
+  userId    Int
+  user      User                     @relation(fields: [userId], references: [id])
+  name      String
+  exercises WorkoutTemplateExercise[]
+  createdAt DateTime                 @default(now())
+}
+
+model WorkoutTemplateExercise {
+  id         Int             @id @default(autoincrement())
+  templateId Int
+  template   WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exerciseId Int
+  exercise   Exercise        @relation(fields: [exerciseId], references: [id])
+  order      Int
+  comment    String?
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model MuscleGroup {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  exercises Exercise[]
+}
+
+model Exercise {
+  id            Int          @id @default(autoincrement())
+  name          String
+  muscleGroupId Int
+  muscleGroup   MuscleGroup  @relation(fields: [muscleGroupId], references: [id])
+  equipment     String?
+  description   String?
+  isCustom          Boolean                  @default(false)
+  createdById       Int?
+  sets              WorkoutSet[]
+  templateExercises WorkoutTemplateExercise[]
+}
+
+model WorkoutSession {
+  id       Int          @id @default(autoincrement())
+  userId   Int
+  user     User         @relation(fields: [userId], references: [id])
+  date     DateTime     @default(now())
+  name     String?
+  notes    String?
+  duration Int?
+  sets     WorkoutSet[]
+}
+
+model WorkoutSet {
+  id         Int            @id @default(autoincrement())
+  sessionId  Int
+  session    WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exerciseId Int
+  exercise   Exercise       @relation(fields: [exerciseId], references: [id])
+  setNumber  Int
+  reps       Int
+  weight     Float
+  rpe        Int?
+  notes      String?
+}
+
