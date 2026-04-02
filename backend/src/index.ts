@@ -11,8 +11,9 @@ const PORT = process.env['PORT'] ?? 3001;
 const allowedOrigins = [
   'http://localhost:5173',         // dev local
   'https://muscuv2.chocot.be',     // web prod
-  'capacitor://localhost',          // Android APK (Capacitor)
-  'http://localhost',               // Android APK (fallback Capacitor)
+  'https://localhost',              // Android APK (Capacitor 7)
+  'capacitor://localhost',          // Android APK (Capacitor <= 6)
+  'http://localhost',               // Android APK (fallback)
 ];
 
 app.use(cors({
