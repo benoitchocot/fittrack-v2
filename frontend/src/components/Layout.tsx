@@ -14,7 +14,7 @@ export default function Layout() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 pb-16 md:pb-0">
+    <div className="min-h-screen bg-gray-950 text-gray-100 md:pb-0" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
       {/* Desktop top nav */}
       <nav className="hidden md:flex bg-gray-900 border-b border-gray-800 px-4 py-3 items-center justify-between">
         <span className="font-bold text-lg text-white">FitTrack</span>
@@ -61,7 +61,7 @@ export default function Layout() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 flex">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 flex" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {navItems.map(({ to, label, exact, icon }) => (
           <NavLink
             key={to}
