@@ -9,8 +9,7 @@ node_modules/
 dist/
 build/
 
-# Prisma
-backend/prisma/migrations/
+# Prisma (migrations committées volontairement)
 
 # Logs
 *.log

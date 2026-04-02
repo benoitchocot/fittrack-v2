@@ -28,4 +28,5 @@ RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY prisma ./prisma
-CMD ["node", "dist/index.js"]
+# Applique les migrations puis démarre le serveur
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
