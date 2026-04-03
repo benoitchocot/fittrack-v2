@@ -14,7 +14,7 @@ export default function Layout() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 md:pb-0" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
+    <div className="min-h-screen bg-gray-950 text-gray-100 md:pb-0 overflow-x-hidden" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
       {/* Desktop top nav */}
       <nav className="hidden md:flex bg-gray-900 border-b border-gray-800 px-4 py-3 items-center justify-between">
         <span className="font-bold text-lg text-white">FitTrack</span>

@@ -141,7 +141,7 @@ function ExerciseBlock({
         <div className="px-4 pb-4 space-y-3 border-t border-gray-800/60 pt-3">
           {/* Comment */}
           {comment && (
-            <p className="text-xs text-indigo-300/80 whitespace-pre-line bg-indigo-950/40 rounded-lg px-3 py-2">
+            <p className="text-xs text-indigo-300/80 whitespace-pre-line break-words overflow-hidden bg-indigo-950/40 rounded-lg px-3 py-2">
               {comment}
             </p>
           )}
@@ -160,11 +160,11 @@ function ExerciseBlock({
 
           {/* Set rows */}
           <div className="space-y-2">
-            <div className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 text-xs text-gray-500 px-1">
+            <div className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 text-xs text-gray-500 px-1">
               <span>#</span><span>Poids (kg)</span><span>Reps</span><span></span>
             </div>
             {rows.map((row, idx) => (
-              <div key={idx} className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 items-center">
+              <div key={idx} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 items-center">
                 <span className="text-xs text-gray-500 text-center">{idx + 1}</span>
                 <input
                   value={row.weight}
@@ -172,7 +172,7 @@ function ExerciseBlock({
                   type="number"
                   placeholder="—"
                   disabled={!!row.savedId}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm text-center focus:outline-none focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm text-center focus:outline-none focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <input
                   value={row.reps}
@@ -180,7 +180,7 @@ function ExerciseBlock({
                   type="number"
                   placeholder="—"
                   disabled={!!row.savedId}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm text-center focus:outline-none focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm text-center focus:outline-none focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <button
                   onClick={() => toggleSet(idx)}
