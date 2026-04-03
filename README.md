@@ -128,8 +128,8 @@ storeFile=../fittrack-release-key.jks
 ```bash
 cd frontend
 
-# Builder les assets web avec l'URL de l'API de prod
-VITE_API_URL=https://apimuscuv2.chocot.be npm run build
+# L'URL de l'API de prod est définie dans .env.production — pas besoin de variable
+npm run build
 
 # Copier les assets dans le projet Android
 npx cap sync android
