@@ -1,6 +1,6 @@
 # FitTrack v2
 
-Application de suivi d'entraînement musculaire et de nutrition.
+Application de suivi d'entraînement musculaire.
 
 **Production :**
 - Frontend : https://muscuv2.chocot.be
