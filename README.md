@@ -86,49 +86,90 @@ cd backend && npx prisma migrate dev
 
 ---
 
-## Build Android (APK)
+## Build Android & Publication Play Store
 
-L'application embarque le frontend dans un APK natif Android via [Capacitor](https://capacitorjs.com/).
+L'application embarque le frontend dans un AAB/APK natif Android via [Capacitor](https://capacitorjs.com/).
 
 ### Prérequis
 
-- [Android Studio](https://developer.android.com/studio) installé
+- JDK installé (vérifier : `java -version`)
 - SDK Android configuré (`ANDROID_HOME` ou `ANDROID_SDK_ROOT`)
 
-### Étapes
+---
+
+### 1. Créer le keystore (une seule fois)
+
+Le keystore est le fichier qui prouve que l'APK vient bien de toi. **À garder précieusement — si tu le perds, tu ne pourras plus mettre à jour l'appli sur le Play Store.**
+
+```bash
+cd frontend/android
+keytool -genkey -v -keystore fittrack-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias fittrack
+```
+
+Renseigner les infos demandées (nom, organisation…) et choisir un mot de passe.
+
+---
+
+### 2. Créer `frontend/android/keystore.properties`
+
+Ce fichier n'est pas commité dans git (sensible).
+
+```properties
+storePassword=LE_MOT_DE_PASSE_KEYSTORE
+keyPassword=LE_MOT_DE_PASSE_CLE
+keyAlias=fittrack
+storeFile=../fittrack-release-key.jks
+```
+
+---
+
+### 3. Builder le frontend et synchroniser
 
 ```bash
 cd frontend
 
-# 1. Builder le frontend en ciblant l'API de production
+# Builder les assets web avec l'URL de l'API de prod
 VITE_API_URL=https://apimuscuv2.chocot.be npm run build
 
-# 2. Synchroniser les assets dans le projet Android
+# Copier les assets dans le projet Android
 npx cap sync android
-
-# 3. Ouvrir dans Android Studio pour builder l'APK
-npx cap open android
 ```
 
-Dans Android Studio : **Build → Build Bundle(s) / APK(s) → Build APK(s)**
+---
 
-L'APK signé sera dans `frontend/android/app/build/outputs/apk/`.
+### 4. Builder l'AAB (format Play Store)
 
-> **Note :** L'APK communique avec l'API de production (`https://apimuscuv2.chocot.be`). Il n'y a pas de mode offline.
+```bash
+cd frontend/android
+./gradlew bundleRelease
+```
+
+L'AAB signé sera dans `frontend/android/app/build/outputs/bundle/release/app-release.aab`.
+
+> Pour un APK à installer directement sur un téléphone (sans Play Store) :
+> ```bash
+> ./gradlew assembleRelease
+> # → frontend/android/app/build/outputs/apk/release/app-release.apk
+> ```
+
+---
+
+### 5. Publier sur le Play Store
+
+1. Aller sur la [Google Play Console](https://play.google.com/console)
+2. Créer une nouvelle application
+3. Remplir la fiche : description, captures d'écran, politique de confidentialité (obligatoire)
+4. Dans **Production → Créer une version**, uploader le fichier `app-release.aab`
+5. Soumettre pour validation (quelques jours la première fois)
+
+> Pour les mises à jour suivantes, incrémenter `versionCode` et `versionName` dans `frontend/android/app/build.gradle` avant chaque build.
 
 ---
 
 ## Build iOS
 
 La configuration iOS n'est pas encore en place (`@capacitor/ios` non installé).  
-Pour l'ajouter :
-
-```bash
-cd frontend
-npm install @capacitor/ios
-npx cap add ios
-# Requiert macOS + Xcode
-```
+Requiert macOS + Xcode.
 
 ---
 
