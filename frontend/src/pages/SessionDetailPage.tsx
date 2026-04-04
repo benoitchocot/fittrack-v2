@@ -10,34 +10,22 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-function parseSetsCount(comment: string | null): number {
-  if (!comment) return 3;
-  const m = comment.match(/(\d+)\s*[×x]/);
-  return m ? Math.min(parseInt(m[1]), 8) : 3;
-}
-
-function parseDefaultReps(comment: string | null): string {
-  if (!comment) return '';
-  const m = comment.match(/(\d+)(?:–(\d+))?\s*reps/i);
-  if (!m) return '';
-  return m[2] ?? m[1] ?? '';
-}
-
 type SetRow = { weight: string; reps: string; savedId: number | null };
 
 function initRows(
-  comment: string | null,
+  defaultSets: number | null,
+  defaultReps: number | null,
+  defaultWeight: number | null,
   savedSets: WorkoutSet[],
   lastSets: Array<{ weight: number; reps: number }>,
 ): SetRow[] {
   if (savedSets.length > 0) {
     return savedSets.map(s => ({ weight: String(s.weight), reps: String(s.reps), savedId: s.id }));
   }
-  const count = parseSetsCount(comment);
-  const defaultReps = parseDefaultReps(comment);
+  const count = defaultSets ?? 3;
   return Array.from({ length: count }, (_, i) => ({
-    weight: lastSets[i] ? String(lastSets[i]!.weight) : '',
-    reps: lastSets[i] ? String(lastSets[i]!.reps) : defaultReps,
+    weight: lastSets[i] ? String(lastSets[i]!.weight) : (defaultWeight != null ? String(defaultWeight) : ''),
+    reps: lastSets[i] ? String(lastSets[i]!.reps) : (defaultReps != null ? String(defaultReps) : ''),
     savedId: null,
   }));
 }
@@ -49,7 +37,9 @@ interface ExerciseBlockProps {
   exerciseId: number;
   name: string;
   muscleGroup: string;
-  comment: string | null;
+  defaultSets: number | null;
+  defaultReps: number | null;
+  defaultWeight: number | null;
   savedSets: WorkoutSet[];
   lastSets: Array<{ weight: number; reps: number }>;
   lastSessionDate?: string;
@@ -57,17 +47,18 @@ interface ExerciseBlockProps {
 }
 
 function ExerciseBlock({
-  sessionId, exerciseId, name, muscleGroup, comment,
+  sessionId, exerciseId, name, muscleGroup,
+  defaultSets, defaultReps, defaultWeight,
   savedSets, lastSets, lastSessionDate, onSetsChange,
 }: ExerciseBlockProps) {
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<SetRow[]>(() => initRows(comment, savedSets, lastSets));
+  const [rows, setRows] = useState<SetRow[]>(() => initRows(defaultSets, defaultReps, defaultWeight, savedSets, lastSets));
   const queryClient = useQueryClient();
 
   // Re-sync rows when savedSets changes from outside
   useEffect(() => {
     setRows(prev => {
-      if (prev.length === 0) return initRows(comment, savedSets, lastSets);
+      if (prev.length === 0) return initRows(defaultSets, defaultReps, defaultWeight, savedSets, lastSets);
       const validIds = new Set(savedSets.map(s => s.id));
       return prev.map(r => ({
         ...r,
@@ -116,8 +107,15 @@ function ExerciseBlock({
   }
 
   function addRow() {
-    const last = rows[rows.length - 1];
-    setRows(prev => [...prev, { weight: last?.weight ?? '', reps: last?.reps ?? '', savedId: null }]);
+    setRows(prev => [...prev, { weight: '0', reps: '0', savedId: null }]);
+  }
+
+  async function deleteRow(idx: number) {
+    const row = rows[idx]!;
+    if (row.savedId) {
+      await deleteSetMutation.mutateAsync(row.savedId);
+    }
+    setRows(prev => prev.filter((_, i) => i !== idx));
   }
 
   const doneCount = rows.filter(r => r.savedId !== null).length;
@@ -146,13 +144,6 @@ function ExerciseBlock({
 
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-gray-800/60 pt-3">
-          {/* Comment */}
-          {comment && (
-            <p className="text-xs text-indigo-300/80 whitespace-pre-line break-words overflow-hidden bg-indigo-950/40 rounded-lg px-3 py-2">
-              {comment}
-            </p>
-          )}
-
           {/* Last session reference */}
           {lastSets.length > 0 && lastSessionDate && (
             <div className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2">
@@ -167,11 +158,11 @@ function ExerciseBlock({
 
           {/* Set rows */}
           <div className="space-y-2">
-            <div className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 text-xs text-gray-500 px-1">
-              <span>#</span><span>Poids (kg)</span><span>Reps</span><span></span>
+            <div className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2rem_2rem] gap-2 text-xs text-gray-500 px-1">
+              <span>#</span><span>Poids (kg)</span><span>Reps</span><span></span><span></span>
             </div>
             {rows.map((row, idx) => (
-              <div key={idx} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 items-center">
+              <div key={idx} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2rem_2rem] gap-2 items-center">
                 <span className="text-xs text-gray-500 text-center">{idx + 1}</span>
                 <input
                   value={row.weight}
@@ -199,6 +190,14 @@ function ExerciseBlock({
                     }`}
                 >
                   {row.savedId ? '✓' : ''}
+                </button>
+                <button
+                  onClick={() => deleteRow(idx)}
+                  disabled={addSetMutation.isPending || deleteSetMutation.isPending}
+                  className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-red-400 transition-colors text-base disabled:opacity-40"
+                  title="Supprimer la série"
+                >
+                  ×
                 </button>
               </div>
             ))}
@@ -316,7 +315,9 @@ export default function SessionDetailPage() {
                 exerciseId={te.exerciseId}
                 name={te.exercise.name}
                 muscleGroup={te.exercise.muscleGroup.name}
-                comment={te.comment}
+                defaultSets={te.sets}
+                defaultReps={te.reps}
+                defaultWeight={te.weight}
                 savedSets={getSavedSets(te.exerciseId)}
                 lastSets={last?.sets ?? []}
                 lastSessionDate={last?.date}
@@ -344,7 +345,9 @@ export default function SessionDetailPage() {
                 exerciseId={exerciseId}
                 name={ex.name}
                 muscleGroup={ex.muscleGroup.name}
-                comment={null}
+                defaultSets={null}
+                defaultReps={null}
+                defaultWeight={null}
                 savedSets={saved}
                 lastSets={last?.sets ?? []}
                 lastSessionDate={last?.date}
