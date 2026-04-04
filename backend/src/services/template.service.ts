@@ -33,14 +33,21 @@ export async function getTemplate(id: number, userId: number) {
 export async function createTemplate(
   userId: number,
   name: string,
-  exercises: Array<{ exerciseId: number; comment?: string }>,
+  exercises: Array<{ exerciseId: number; comment?: string; sets?: number; reps?: number; weight?: number }>,
 ) {
   return prisma.workoutTemplate.create({
     data: {
       userId,
       name,
       exercises: {
-        create: exercises.map((e, i) => ({ exerciseId: e.exerciseId, order: i, comment: e.comment ?? null })),
+        create: exercises.map((e, i) => ({
+          exerciseId: e.exerciseId,
+          order: i,
+          comment: e.comment ?? null,
+          sets: e.sets ?? null,
+          reps: e.reps ?? null,
+          weight: e.weight ?? null,
+        })),
       },
     },
     include: {
@@ -56,7 +63,7 @@ export async function updateTemplate(
   id: number,
   userId: number,
   name: string,
-  exercises: Array<{ exerciseId: number; comment?: string }>,
+  exercises: Array<{ exerciseId: number; comment?: string; sets?: number; reps?: number; weight?: number }>,
 ) {
   const template = await prisma.workoutTemplate.findUnique({ where: { id } });
   if (!template) throw new Error('NOT_FOUND');
@@ -69,7 +76,14 @@ export async function updateTemplate(
     data: {
       name,
       exercises: {
-        create: exercises.map((e, i) => ({ exerciseId: e.exerciseId, order: i, comment: e.comment ?? null })),
+        create: exercises.map((e, i) => ({
+          exerciseId: e.exerciseId,
+          order: i,
+          comment: e.comment ?? null,
+          sets: e.sets ?? null,
+          reps: e.reps ?? null,
+          weight: e.weight ?? null,
+        })),
       },
     },
     include: {

@@ -36,6 +36,9 @@ model WorkoutTemplateExercise {
   exercise   Exercise        @relation(fields: [exerciseId], references: [id])
   order      Int
   comment    String?
+  sets       Int?
+  reps       Int?
+  weight     Float?
 }
 
 model RefreshToken {

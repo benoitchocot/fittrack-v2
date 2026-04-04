@@ -1,13 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 import { sessions, templates } from '../lib/api';
 import type { WorkoutTemplate } from '../lib/types';
 
 export default function NewSessionPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [customName, setCustomName] = useState('');
 
   const { data: templateList = [], isLoading } = useQuery({
     queryKey: ['templates'],
@@ -15,14 +13,11 @@ export default function NewSessionPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { name?: string; templateId?: number }) =>
+    mutationFn: (data: { name: string; templateId: number }) =>
       sessions.create({ name: data.name }),
     onSuccess: (session, vars) => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      const url = vars.templateId
-        ? `/sessions/${session.id}?templateId=${vars.templateId}`
-        : `/sessions/${session.id}`;
-      navigate(url);
+      navigate(`/sessions/${session.id}?templateId=${vars.templateId}`);
     },
   });
 
@@ -30,15 +25,10 @@ export default function NewSessionPage() {
     createMutation.mutate({ name: template.name, templateId: template.id });
   }
 
-  function startBlank() {
-    createMutation.mutate({ name: customName || undefined });
-  }
-
   return (
     <div className="max-w-lg space-y-6">
       <h1 className="text-2xl font-bold text-white">Nouvelle séance</h1>
 
-      {/* Templates */}
       {isLoading ? (
         <p className="text-gray-400 text-sm">Chargement des templates...</p>
       ) : templateList.length > 0 ? (
@@ -74,29 +64,11 @@ export default function NewSessionPage() {
             ))}
           </div>
         </div>
-      ) : null}
-
-      {/* Blank session */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Séance libre
-        </h2>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-          <input
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            placeholder="Nom de la séance (optionnel)"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-500"
-          />
-          <button
-            onClick={startBlank}
-            disabled={createMutation.isPending}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors"
-          >
-            {createMutation.isPending ? 'Création...' : 'Commencer'}
-          </button>
-        </div>
-      </div>
+      ) : (
+        <p className="text-gray-500 text-sm">
+          Aucun template disponible. Crée d'abord un template depuis la page Templates.
+        </p>
+      )}
     </div>
   );
 }

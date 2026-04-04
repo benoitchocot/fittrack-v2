@@ -61,6 +61,9 @@ export interface WorkoutTemplateExercise {
   exercise: Exercise;
   order: number;
   comment: string | null;
+  sets: number | null;
+  reps: number | null;
+  weight: number | null;
 }
 
 export interface WorkoutTemplate {

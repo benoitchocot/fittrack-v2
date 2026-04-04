@@ -21,6 +21,9 @@ function handleError(err: unknown, res: Response): void {
 const exerciseEntry = z.object({
   exerciseId: z.number().int().positive(),
   comment: z.string().max(500).optional(),
+  sets: z.number().int().min(1).max(20).optional(),
+  reps: z.number().int().min(1).max(100).optional(),
+  weight: z.number().min(0).optional(),
 });
 
 const bodySchema = z.object({

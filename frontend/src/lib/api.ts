@@ -121,9 +121,9 @@ export const sessions = {
 export const templates = {
   list: () => apiFetch<WorkoutTemplate[]>('/templates'),
   get: (id: number) => apiFetch<WorkoutTemplate>(`/templates/${id}`),
-  create: (data: { name: string; exercises: Array<{ exerciseId: number; comment?: string }> }) =>
+  create: (data: { name: string; exercises: Array<{ exerciseId: number; comment?: string; sets?: number; reps?: number; weight?: number }> }) =>
     apiFetch<WorkoutTemplate>('/templates', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: number, data: { name: string; exercises: Array<{ exerciseId: number; comment?: string }> }) =>
+  update: (id: number, data: { name: string; exercises: Array<{ exerciseId: number; comment?: string; sets?: number; reps?: number; weight?: number }> }) =>
     apiFetch<WorkoutTemplate>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<void>(`/templates/${id}`, { method: 'DELETE' }),
 };
