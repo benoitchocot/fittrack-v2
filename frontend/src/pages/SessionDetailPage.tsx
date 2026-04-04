@@ -66,7 +66,14 @@ function ExerciseBlock({
 
   // Re-sync rows when savedSets changes from outside
   useEffect(() => {
-    setRows(initRows(comment, savedSets, lastSets));
+    setRows(prev => {
+      if (prev.length === 0) return initRows(comment, savedSets, lastSets);
+      const validIds = new Set(savedSets.map(s => s.id));
+      return prev.map(r => ({
+        ...r,
+        savedId: r.savedId !== null && !validIds.has(r.savedId) ? null : r.savedId,
+      }));
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedSets.length]);
 
