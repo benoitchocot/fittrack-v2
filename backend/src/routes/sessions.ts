@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { authMiddleware } from '../middleware/auth';
 import * as sessionService from '../services/session.service';
 
@@ -10,14 +11,29 @@ function parseIntParam(value: string | string[] | undefined): number {
 const router = Router();
 router.use(authMiddleware);
 
+const sessionExerciseSchema = z.object({
+  exerciseId: z.number().int().positive(),
+  name: z.string(),
+  muscleGroupName: z.string(),
+  sets: z.number().int().positive().nullable().optional(),
+  reps: z.number().int().positive().nullable().optional(),
+  weight: z.number().nonnegative().nullable().optional(),
+  comment: z.string().nullable().optional(),
+});
+
 const sessionCreateSchema = z.object({
+  name: z.string().max(100).optional(),
+  notes: z.string().max(1000).optional(),
+  exercises: z.array(sessionExerciseSchema).optional(),
+});
+
+const sessionUpdateSchema = z.object({
   name: z.string().max(100).optional(),
   notes: z.string().max(1000).optional(),
   duration: z.number().int().positive().optional(),
   date: z.coerce.date().optional(),
+  exercises: z.array(sessionExerciseSchema).optional(),
 });
-
-const sessionUpdateSchema = sessionCreateSchema.partial();
 
 const setCreateSchema = z.object({
   exerciseId: z.number().int().positive(),
@@ -40,9 +56,25 @@ function handleServiceError(err: unknown, res: Response): void {
   if (err instanceof Error) {
     if (err.message === 'NOT_FOUND') { res.status(404).json({ error: 'Not found' }); return; }
     if (err.message === 'FORBIDDEN') { res.status(403).json({ error: 'Forbidden' }); return; }
+    if (err.message === 'NOT_ACTIVE') { res.status(400).json({ error: 'Session is not active' }); return; }
   }
   res.status(500).json({ error: 'Internal server error' });
 }
+
+// GET /sessions/active — must be before /:id
+router.get('/active', async (req: Request, res: Response): Promise<void> => {
+  const session = await sessionService.getActiveSession(req.user!.id);
+  res.json(session ?? null);
+});
+
+// GET /sessions/progression/:exerciseId — must be before /:id
+router.get('/progression/:exerciseId', async (req: Request, res: Response): Promise<void> => {
+  const exerciseId = parseIntParam(req.params['exerciseId']);
+  if (isNaN(exerciseId)) { res.status(400).json({ error: 'Invalid exercise id' }); return; }
+
+  const data = await sessionService.getExerciseProgression(exerciseId, req.user!.id);
+  res.json(data);
+});
 
 // GET /sessions
 router.get('/', async (req: Request, res: Response): Promise<void> => {
@@ -71,7 +103,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const session = await sessionService.createSession(req.user!.id, parsed.data);
+  const session = await sessionService.createSession(req.user!.id, {
+    name: parsed.data.name,
+    notes: parsed.data.notes,
+    exercises: parsed.data.exercises as Prisma.InputJsonValue | undefined,
+  });
   res.status(201).json(session);
 });
 
@@ -87,7 +123,52 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const session = await sessionService.updateSession(id, req.user!.id, parsed.data);
+    const session = await sessionService.updateSession(id, req.user!.id, {
+      name: parsed.data.name,
+      notes: parsed.data.notes,
+      duration: parsed.data.duration,
+      date: parsed.data.date,
+      exercises: parsed.data.exercises as Prisma.InputJsonValue | undefined,
+    });
+    res.json(session);
+  } catch (err) {
+    handleServiceError(err, res);
+  }
+});
+
+// POST /sessions/:id/pause
+router.post('/:id/pause', async (req: Request, res: Response): Promise<void> => {
+  const id = parseIntParam(req.params['id']);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  try {
+    const session = await sessionService.pauseSession(id, req.user!.id);
+    res.json(session);
+  } catch (err) {
+    handleServiceError(err, res);
+  }
+});
+
+// POST /sessions/:id/resume
+router.post('/:id/resume', async (req: Request, res: Response): Promise<void> => {
+  const id = parseIntParam(req.params['id']);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  try {
+    const session = await sessionService.resumeSession(id, req.user!.id);
+    res.json(session);
+  } catch (err) {
+    handleServiceError(err, res);
+  }
+});
+
+// POST /sessions/:id/end
+router.post('/:id/end', async (req: Request, res: Response): Promise<void> => {
+  const id = parseIntParam(req.params['id']);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  try {
+    const session = await sessionService.endSession(id, req.user!.id);
     res.json(session);
   } catch (err) {
     handleServiceError(err, res);
@@ -158,15 +239,6 @@ router.delete('/:id/sets/:setId', async (req: Request, res: Response): Promise<v
   } catch (err) {
     handleServiceError(err, res);
   }
-});
-
-// GET /sessions/progression/:exerciseId
-router.get('/progression/:exerciseId', async (req: Request, res: Response): Promise<void> => {
-  const exerciseId = parseIntParam(req.params['exerciseId']);
-  if (isNaN(exerciseId)) { res.status(400).json({ error: 'Invalid exercise id' }); return; }
-
-  const data = await sessionService.getExerciseProgression(exerciseId, req.user!.id);
-  res.json(data);
 });
 
 export default router;

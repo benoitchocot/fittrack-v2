@@ -70,14 +70,19 @@ model Exercise {
 }
 
 model WorkoutSession {
-  id       Int          @id @default(autoincrement())
-  userId   Int
-  user     User         @relation(fields: [userId], references: [id])
-  date     DateTime     @default(now())
-  name     String?
-  notes    String?
-  duration Int?
-  sets     WorkoutSet[]
+  id             Int          @id @default(autoincrement())
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+  date           DateTime     @default(now())
+  name           String?
+  notes          String?
+  duration       Int?
+  status         String       @default("completed")
+  startedAt      DateTime     @default(now())
+  pausedAt       DateTime?
+  pausedDuration Int          @default(0)
+  exercises      Json?
+  sets           WorkoutSet[]
 }
 
 model WorkoutSet {

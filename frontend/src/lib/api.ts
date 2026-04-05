@@ -1,4 +1,4 @@
-import type { AuthTokens, Exercise, WorkoutSession, WorkoutSet, MuscleGroup, ProgressionPoint, WorkoutTemplate } from './types';
+import type { AuthTokens, Exercise, WorkoutSession, WorkoutSet, MuscleGroup, ProgressionPoint, WorkoutTemplate, SessionExercise } from './types';
 
 const BASE_URL = import.meta.env['VITE_API_URL'] ?? 'http://localhost:3001';
 
@@ -100,11 +100,15 @@ export const exercises = {
 export const sessions = {
   list: () => apiFetch<WorkoutSession[]>('/sessions'),
   get: (id: number) => apiFetch<WorkoutSession>(`/sessions/${id}`),
-  create: (data: { name?: string; notes?: string; duration?: number; date?: string }) =>
+  getActive: () => apiFetch<WorkoutSession | null>('/sessions/active'),
+  create: (data: { name?: string; notes?: string; exercises?: SessionExercise[] }) =>
     apiFetch<WorkoutSession>('/sessions', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: number, data: Partial<{ name: string; notes: string; duration: number; date: string }>) =>
+  update: (id: number, data: Partial<{ name: string; notes: string; duration: number; date: string; exercises: SessionExercise[] }>) =>
     apiFetch<WorkoutSession>(`/sessions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: number) => apiFetch<void>(`/sessions/${id}`, { method: 'DELETE' }),
+  pause: (id: number) => apiFetch<WorkoutSession>(`/sessions/${id}/pause`, { method: 'POST' }),
+  resume: (id: number) => apiFetch<WorkoutSession>(`/sessions/${id}/resume`, { method: 'POST' }),
+  end: (id: number) => apiFetch<WorkoutSession>(`/sessions/${id}/end`, { method: 'POST' }),
 
   addSet: (sessionId: number, data: { exerciseId: number; setNumber: number; reps: number; weight: number; rpe?: number; notes?: string }) =>
     apiFetch<WorkoutSet>(`/sessions/${sessionId}/sets`, { method: 'POST', body: JSON.stringify(data) }),

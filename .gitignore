@@ -32,3 +32,4 @@ Thumbs.db
 
 # SQL exports / backups locaux
 *.sql
+!backend/prisma/migrations/**/*.sql

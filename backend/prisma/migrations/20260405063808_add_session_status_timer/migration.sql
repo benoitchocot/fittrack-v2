@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "WorkoutSession" ADD COLUMN     "exercises" JSONB,
+ADD COLUMN     "pausedAt" TIMESTAMP(3),
+ADD COLUMN     "pausedDuration" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "status" TEXT NOT NULL DEFAULT 'completed';

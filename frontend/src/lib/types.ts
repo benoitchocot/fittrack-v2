@@ -33,6 +33,16 @@ export interface WorkoutSet {
   notes: string | null;
 }
 
+export interface SessionExercise {
+  exerciseId: number;
+  name: string;
+  muscleGroupName: string;
+  sets: number | null;
+  reps: number | null;
+  weight: number | null;
+  comment: string | null;
+}
+
 export interface WorkoutSession {
   id: number;
   userId: number;
@@ -40,6 +50,11 @@ export interface WorkoutSession {
   name: string | null;
   notes: string | null;
   duration: number | null;
+  status: string;
+  startedAt: string;
+  pausedAt: string | null;
+  pausedDuration: number;
+  exercises: SessionExercise[] | null;
   sets: WorkoutSet[];
 }
 

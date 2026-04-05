@@ -1,27 +1,33 @@
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
+
+const sessionInclude = {
+  sets: {
+    include: { exercise: { include: { muscleGroup: true } } },
+    orderBy: [{ exerciseId: 'asc' as const }, { setNumber: 'asc' as const }],
+  },
+};
 
 export async function listSessions(userId: number) {
   return prisma.workoutSession.findMany({
     where: { userId },
-    include: {
-      sets: {
-        include: { exercise: { include: { muscleGroup: true } } },
-        orderBy: [{ exerciseId: 'asc' }, { setNumber: 'asc' }],
-      },
-    },
+    include: sessionInclude,
     orderBy: { date: 'desc' },
+  });
+}
+
+export async function getActiveSession(userId: number) {
+  return prisma.workoutSession.findFirst({
+    where: { userId, status: 'active' },
+    include: sessionInclude,
+    orderBy: { startedAt: 'desc' },
   });
 }
 
 export async function getSession(id: number, userId: number) {
   const session = await prisma.workoutSession.findUnique({
     where: { id },
-    include: {
-      sets: {
-        include: { exercise: { include: { muscleGroup: true } } },
-        orderBy: [{ exerciseId: 'asc' }, { setNumber: 'asc' }],
-      },
-    },
+    include: sessionInclude,
   });
 
   if (!session) throw new Error('NOT_FOUND');
@@ -32,18 +38,26 @@ export async function getSession(id: number, userId: number) {
 
 export async function createSession(
   userId: number,
-  data: { name?: string; notes?: string; duration?: number; date?: Date },
+  data: { name?: string; notes?: string; exercises?: Prisma.InputJsonValue },
 ) {
   return prisma.workoutSession.create({
-    data: { userId, ...data },
-    include: { sets: true },
+    data: {
+      userId,
+      name: data.name,
+      notes: data.notes,
+      exercises: data.exercises ?? Prisma.JsonNull,
+      status: 'active',
+      startedAt: new Date(),
+      pausedDuration: 0,
+    },
+    include: sessionInclude,
   });
 }
 
 export async function updateSession(
   id: number,
   userId: number,
-  data: { name?: string; notes?: string; duration?: number; date?: Date },
+  data: { name?: string; notes?: string; duration?: number; date?: Date; exercises?: Prisma.InputJsonValue },
 ) {
   const session = await prisma.workoutSession.findUnique({ where: { id } });
 
@@ -52,13 +66,73 @@ export async function updateSession(
 
   return prisma.workoutSession.update({
     where: { id },
-    data,
-    include: {
-      sets: {
-        include: { exercise: { include: { muscleGroup: true } } },
-        orderBy: [{ exerciseId: 'asc' }, { setNumber: 'asc' }],
-      },
+    data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      ...(data.duration !== undefined ? { duration: data.duration } : {}),
+      ...(data.date !== undefined ? { date: data.date } : {}),
+      ...(data.exercises !== undefined ? { exercises: data.exercises } : {}),
     },
+    include: sessionInclude,
+  });
+}
+
+export async function pauseSession(id: number, userId: number) {
+  const session = await prisma.workoutSession.findUnique({ where: { id } });
+
+  if (!session) throw new Error('NOT_FOUND');
+  if (session.userId !== userId) throw new Error('FORBIDDEN');
+  if (session.status !== 'active') throw new Error('NOT_ACTIVE');
+  if (session.pausedAt) return session; // already paused
+
+  return prisma.workoutSession.update({
+    where: { id },
+    data: { pausedAt: new Date() },
+    include: sessionInclude,
+  });
+}
+
+export async function resumeSession(id: number, userId: number) {
+  const session = await prisma.workoutSession.findUnique({ where: { id } });
+
+  if (!session) throw new Error('NOT_FOUND');
+  if (session.userId !== userId) throw new Error('FORBIDDEN');
+  if (!session.pausedAt) return session; // not paused
+
+  const additionalPause = Math.floor((Date.now() - session.pausedAt.getTime()) / 1000);
+
+  return prisma.workoutSession.update({
+    where: { id },
+    data: {
+      pausedAt: null,
+      pausedDuration: session.pausedDuration + additionalPause,
+    },
+    include: sessionInclude,
+  });
+}
+
+export async function endSession(id: number, userId: number) {
+  const session = await prisma.workoutSession.findUnique({ where: { id } });
+
+  if (!session) throw new Error('NOT_FOUND');
+  if (session.userId !== userId) throw new Error('FORBIDDEN');
+
+  // Compute total elapsed time in minutes
+  const pausedDuration = session.pausedDuration + (session.pausedAt
+    ? Math.floor((Date.now() - session.pausedAt.getTime()) / 1000)
+    : 0);
+  const elapsedSeconds = Math.floor((Date.now() - session.startedAt.getTime()) / 1000) - pausedDuration;
+  const durationMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
+
+  return prisma.workoutSession.update({
+    where: { id },
+    data: {
+      status: 'completed',
+      pausedAt: null,
+      pausedDuration,
+      duration: durationMinutes,
+    },
+    include: sessionInclude,
   });
 }
 
@@ -146,7 +220,6 @@ export async function getExerciseProgression(exerciseId: number, userId: number)
     orderBy: { session: { date: 'asc' } },
   });
 
-  // Group by session date, keep best set (max weight) per session
   const byDate = new Map<string, { date: Date; maxWeight: number; reps: number }>();
 
   for (const set of sets) {

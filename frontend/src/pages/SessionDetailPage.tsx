@@ -1,13 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { sessions, templates } from '../lib/api';
-import type { WorkoutSet, WorkoutTemplateExercise } from '../lib/types';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { sessions, exercises as exercisesApi } from '../lib/api';
+import type { WorkoutSet, SessionExercise, Exercise } from '../lib/types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function computeElapsed(startedAt: string, pausedAt: string | null, pausedDuration: number): number {
+  const started = new Date(startedAt).getTime();
+  const pausedMs = pausedDuration * 1000;
+  if (pausedAt) {
+    return Math.floor((new Date(pausedAt).getTime() - started - pausedMs) / 1000);
+  }
+  return Math.floor((Date.now() - started - pausedMs) / 1000);
 }
 
 type SetRow = { weight: string; reps: string; savedId: number | null };
@@ -30,6 +47,59 @@ function initRows(
   }));
 }
 
+// ─── ExercisePicker ──────────────────────────────────────────────────────────
+
+interface ExercisePickerProps {
+  allExercises: Exercise[];
+  onSelect: (ex: Exercise) => void;
+  onCancel: () => void;
+}
+
+function ExercisePicker({ allExercises, onSelect, onCancel }: ExercisePickerProps) {
+  const [query, setQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const filtered = query.length >= 1
+    ? allExercises.filter(e => e.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+    : [];
+
+  return (
+    <div className="mt-2 bg-gray-800 border border-indigo-700/50 rounded-lg overflow-hidden">
+      <input
+        ref={inputRef}
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Rechercher un exercice..."
+        className="w-full bg-transparent px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none border-b border-gray-700"
+      />
+      {filtered.length > 0 ? (
+        <div className="max-h-48 overflow-y-auto">
+          {filtered.map(ex => (
+            <button
+              key={ex.id}
+              onClick={() => onSelect(ex)}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors"
+            >
+              <span className="text-white">{ex.name}</span>
+              <span className="text-gray-500 text-xs ml-2">{ex.muscleGroup.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : query.length >= 1 ? (
+        <p className="px-3 py-2 text-sm text-gray-500">Aucun résultat</p>
+      ) : null}
+      <button
+        onClick={onCancel}
+        className="w-full text-center py-1.5 text-xs text-gray-600 hover:text-gray-400 transition-colors border-t border-gray-700"
+      >
+        Annuler
+      </button>
+    </div>
+  );
+}
+
 // ─── ExerciseBlock ───────────────────────────────────────────────────────────
 
 interface ExerciseBlockProps {
@@ -43,19 +113,23 @@ interface ExerciseBlockProps {
   savedSets: WorkoutSet[];
   lastSets: Array<{ weight: number; reps: number }>;
   lastSessionDate?: string;
+  isActive: boolean;
+  allExercises: Exercise[];
   onSetsChange: () => void;
+  onReplace: (newExercise: Exercise) => void;
 }
 
 function ExerciseBlock({
   sessionId, exerciseId, name, muscleGroup,
   defaultSets, defaultReps, defaultWeight,
-  savedSets, lastSets, lastSessionDate, onSetsChange,
+  savedSets, lastSets, lastSessionDate,
+  isActive, allExercises, onSetsChange, onReplace,
 }: ExerciseBlockProps) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<SetRow[]>(() => initRows(defaultSets, defaultReps, defaultWeight, savedSets, lastSets));
+  const [replacing, setReplacing] = useState(false);
   const queryClient = useQueryClient();
 
-  // Re-sync rows when savedSets changes from outside
   useEffect(() => {
     setRows(prev => {
       if (prev.length === 0) return initRows(defaultSets, defaultReps, defaultWeight, savedSets, lastSets);
@@ -88,11 +162,9 @@ function ExerciseBlock({
   async function toggleSet(idx: number) {
     const row = rows[idx]!;
     if (row.savedId) {
-      // Uncheck → delete
       await deleteSetMutation.mutateAsync(row.savedId);
       setRows(prev => prev.map((r, i) => i === idx ? { ...r, savedId: null } : r));
     } else {
-      // Check → save
       const w = parseFloat(row.weight);
       const r = parseInt(row.reps);
       if (isNaN(w) || isNaN(r) || r <= 0) return;
@@ -112,9 +184,7 @@ function ExerciseBlock({
 
   async function deleteRow(idx: number) {
     const row = rows[idx]!;
-    if (row.savedId) {
-      await deleteSetMutation.mutateAsync(row.savedId);
-    }
+    if (row.savedId) await deleteSetMutation.mutateAsync(row.savedId);
     setRows(prev => prev.filter((_, i) => i !== idx));
   }
 
@@ -124,26 +194,46 @@ function ExerciseBlock({
   return (
     <div className={`rounded-xl border transition-colors ${open ? 'border-indigo-700/60 bg-gray-900' : 'border-gray-800 bg-gray-900'}`}>
       {/* Header */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full text-left px-4 py-3 flex items-center justify-between"
-      >
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-white truncate">{name}</p>
-          <p className="text-xs text-gray-500">{muscleGroup}</p>
-        </div>
-        <div className="flex items-center gap-3 ml-3 shrink-0">
-          {doneCount > 0 && (
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${doneCount === total ? 'bg-green-900/60 text-green-400' : 'bg-indigo-900/60 text-indigo-400'}`}>
-              {doneCount}/{total}
-            </span>
-          )}
-          <span className={`text-gray-400 transition-transform text-sm ${open ? 'rotate-90' : ''}`}>›</span>
-        </div>
-      </button>
+      <div className="flex items-center">
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="flex-1 min-w-0 text-left px-4 py-3 flex items-center justify-between"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-white truncate">{name}</p>
+            <p className="text-xs text-gray-500">{muscleGroup}</p>
+          </div>
+          <div className="flex items-center gap-3 ml-3 shrink-0">
+            {doneCount > 0 && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${doneCount === total ? 'bg-green-900/60 text-green-400' : 'bg-indigo-900/60 text-indigo-400'}`}>
+                {doneCount}/{total}
+              </span>
+            )}
+            <span className={`text-gray-400 transition-transform text-sm ${open ? 'rotate-90' : ''}`}>›</span>
+          </div>
+        </button>
+        {isActive && (
+          <button
+            onClick={() => { setReplacing(v => !v); setOpen(true); }}
+            className="pr-4 pl-2 py-3 text-xs text-gray-600 hover:text-indigo-400 transition-colors shrink-0"
+            title="Remplacer l'exercice"
+          >
+            ⇄
+          </button>
+        )}
+      </div>
 
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-gray-800/60 pt-3">
+          {/* Replace picker */}
+          {replacing && (
+            <ExercisePicker
+              allExercises={allExercises.filter(e => e.id !== exerciseId)}
+              onSelect={ex => { onReplace(ex); setReplacing(false); }}
+              onCancel={() => setReplacing(false)}
+            />
+          )}
+
           {/* Last session reference */}
           {lastSets.length > 0 && lastSessionDate && (
             <div className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2">
@@ -195,7 +285,6 @@ function ExerciseBlock({
                   onClick={() => deleteRow(idx)}
                   disabled={addSetMutation.isPending || deleteSetMutation.isPending}
                   className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-red-400 transition-colors text-base disabled:opacity-40"
-                  title="Supprimer la série"
                 >
                   ×
                 </button>
@@ -203,10 +292,7 @@ function ExerciseBlock({
             ))}
           </div>
 
-          <button
-            onClick={addRow}
-            className="text-xs text-gray-500 hover:text-indigo-400 transition-colors"
-          >
+          <button onClick={addRow} className="text-xs text-gray-500 hover:text-indigo-400 transition-colors">
             + Ajouter une série
           </button>
         </div>
@@ -219,12 +305,11 @@ function ExerciseBlock({
 
 export default function SessionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
-  const templateId = searchParams.get('templateId') ? parseInt(searchParams.get('templateId')!) : null;
   const sessionId = parseInt(id ?? '');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tick, setTick] = useState(0); // force re-render when sets change
+  const [tick, setTick] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
 
   const { data: session, isLoading } = useQuery({
     queryKey: ['sessions', sessionId],
@@ -236,10 +321,47 @@ export default function SessionDetailPage() {
     queryFn: sessions.list,
   });
 
-  const { data: template } = useQuery({
-    queryKey: ['templates', templateId],
-    queryFn: () => templates.get(templateId!),
-    enabled: templateId !== null,
+  const { data: allExercises = [] } = useQuery({
+    queryKey: ['exercises'],
+    queryFn: exercisesApi.list,
+  });
+
+  // Timer
+  useEffect(() => {
+    if (!session) return;
+    if (session.status !== 'active') return;
+
+    setElapsed(Math.max(0, computeElapsed(session.startedAt, session.pausedAt, session.pausedDuration)));
+
+    if (session.pausedAt) return; // paused — don't tick
+
+    const interval = setInterval(() => {
+      setElapsed(Math.max(0, computeElapsed(session.startedAt, session.pausedAt, session.pausedDuration)));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [session?.startedAt, session?.pausedAt, session?.pausedDuration, session?.status]);
+
+  const pauseMutation = useMutation({
+    mutationFn: () => sessions.pause(sessionId),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['sessions', sessionId], updated);
+    },
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => sessions.resume(sessionId),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['sessions', sessionId], updated);
+    },
+  });
+
+  const endMutation = useMutation({
+    mutationFn: () => sessions.end(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      navigate('/sessions');
+    },
   });
 
   const deleteSessionMutation = useMutation({
@@ -250,13 +372,23 @@ export default function SessionDetailPage() {
     },
   });
 
+  const updateExercisesMutation = useMutation({
+    mutationFn: (exercises: SessionExercise[]) => sessions.update(sessionId, { exercises }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['sessions', sessionId], updated);
+    },
+  });
+
   if (isLoading) return <div className="text-gray-400">Chargement...</div>;
   if (!session) return <div className="text-red-400">Séance introuvable</div>;
 
-  // Build history lookup: exerciseId → {sets, date} from last session before this one
+  const isActive = session.status === 'active';
+  const isPaused = !!session.pausedAt;
+
+  // Build history lookup
   function getLastSets(exerciseId: number): { sets: Array<{ weight: number; reps: number }>; date: string } | null {
     const previous = allSessions
-      .filter(s => s.id !== sessionId && s.sets.some(set => set.exerciseId === exerciseId))
+      .filter(s => s.id !== sessionId && s.status === 'completed' && s.sets.some(set => set.exerciseId === exerciseId))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     if (!previous.length) return null;
     const last = previous[0]!;
@@ -267,25 +399,69 @@ export default function SessionDetailPage() {
     return { sets, date: last.date };
   }
 
-  // Determine exercises to show: template first, then any extra in session
-  const templateExercises: WorkoutTemplateExercise[] = template?.exercises ?? [];
-  const templateExerciseIds = new Set(templateExercises.map(te => te.exerciseId));
+  function getSavedSets(exerciseId: number): WorkoutSet[] {
+    return session!.sets.filter(s => s.exerciseId === exerciseId).sort((a, b) => a.setNumber - b.setNumber);
+  }
 
-  // Extra sets not from template
+  // Determine exercise list: from session snapshot or fallback to extra sets
+  const plannedExercises: SessionExercise[] = session.exercises ?? [];
+  const plannedIds = new Set(plannedExercises.map(e => e.exerciseId));
+
   const extraExerciseIds = [...new Set(
     session.sets
-      .filter(s => !templateExerciseIds.has(s.exerciseId))
+      .filter(s => !plannedIds.has(s.exerciseId))
       .map(s => s.exerciseId)
   )];
 
-  function getSavedSets(exerciseId: number): WorkoutSet[] {
-    return session!.sets.filter(s => s.exerciseId === exerciseId).sort((a, b) => a.setNumber - b.setNumber);
+  function handleReplaceExercise(idx: number, newExercise: Exercise) {
+    const updated = plannedExercises.map((e, i) =>
+      i === idx
+        ? {
+            exerciseId: newExercise.id,
+            name: newExercise.name,
+            muscleGroupName: newExercise.muscleGroup.name,
+            sets: e.sets,
+            reps: e.reps,
+            weight: e.weight,
+            comment: e.comment,
+          }
+        : e
+    );
+    updateExercisesMutation.mutate(updated);
   }
 
   const totalSets = session.sets.length;
 
   return (
     <div className="space-y-4 max-w-2xl">
+      {/* Timer bar — only for active sessions */}
+      {isActive && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className={`text-2xl font-mono font-bold ${isPaused ? 'text-gray-500' : 'text-white'}`}>
+              {formatDuration(elapsed)}
+            </span>
+            {isPaused && <span className="text-xs text-amber-500 font-medium">EN PAUSE</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => isPaused ? resumeMutation.mutate() : pauseMutation.mutate()}
+              disabled={pauseMutation.isPending || resumeMutation.isPending}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-700 text-gray-300 hover:border-gray-600 hover:text-white transition-colors disabled:opacity-50"
+            >
+              {isPaused ? '▶ Reprendre' : '⏸ Pause'}
+            </button>
+            <button
+              onClick={() => { if (confirm('Terminer et enregistrer la séance ?')) endMutation.mutate(); }}
+              disabled={endMutation.isPending}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-green-700 hover:bg-green-600 text-white transition-colors disabled:opacity-50"
+            >
+              Terminer
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -303,35 +479,38 @@ export default function SessionDetailPage() {
         </button>
       </div>
 
-      {/* Template exercises */}
-      {templateExercises.length > 0 && (
+      {/* Planned exercises */}
+      {plannedExercises.length > 0 && (
         <div className="space-y-2">
-          {templateExercises.map(te => {
-            const last = getLastSets(te.exerciseId);
+          {plannedExercises.map((se, idx) => {
+            const last = getLastSets(se.exerciseId);
             return (
               <ExerciseBlock
-                key={te.exerciseId}
+                key={`${se.exerciseId}-${idx}`}
                 sessionId={sessionId}
-                exerciseId={te.exerciseId}
-                name={te.exercise.name}
-                muscleGroup={te.exercise.muscleGroup.name}
-                defaultSets={te.sets}
-                defaultReps={te.reps}
-                defaultWeight={te.weight}
-                savedSets={getSavedSets(te.exerciseId)}
+                exerciseId={se.exerciseId}
+                name={se.name}
+                muscleGroup={se.muscleGroupName}
+                defaultSets={se.sets ?? null}
+                defaultReps={se.reps ?? null}
+                defaultWeight={se.weight ?? null}
+                savedSets={getSavedSets(se.exerciseId)}
                 lastSets={last?.sets ?? []}
                 lastSessionDate={last?.date}
+                isActive={isActive}
+                allExercises={allExercises}
                 onSetsChange={() => setTick(t => t + 1)}
+                onReplace={(newEx) => handleReplaceExercise(idx, newEx)}
               />
             );
           })}
         </div>
       )}
 
-      {/* Extra exercises (added outside template) */}
+      {/* Extra exercises (sets outside planned list) */}
       {extraExerciseIds.length > 0 && (
         <div className="space-y-2">
-          {templateExercises.length > 0 && (
+          {plannedExercises.length > 0 && (
             <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Exercices supplémentaires</p>
           )}
           {extraExerciseIds.map(exerciseId => {
@@ -351,21 +530,22 @@ export default function SessionDetailPage() {
                 savedSets={saved}
                 lastSets={last?.sets ?? []}
                 lastSessionDate={last?.date}
+                isActive={isActive}
+                allExercises={allExercises}
                 onSetsChange={() => setTick(t => t + 1)}
+                onReplace={() => {}} // extra exercises can't be replaced (no planned slot)
               />
             );
           })}
         </div>
       )}
 
-      {/* Empty state */}
-      {templateExercises.length === 0 && extraExerciseIds.length === 0 && (
+      {plannedExercises.length === 0 && extraExerciseIds.length === 0 && (
         <p className="text-gray-500 text-sm text-center py-8">
-          Aucun exercice. Crée la séance depuis un template pour avoir les exercices pré-remplis.
+          Aucun exercice. Démarre une séance depuis un template pour avoir les exercices pré-remplis.
         </p>
       )}
 
-      {/* Tick to force re-render (suppress unused var warning) */}
       <span className="hidden">{tick}</span>
     </div>
   );
