@@ -81,7 +81,10 @@ export const auth = {
       body: JSON.stringify({ refreshToken }),
     }),
 
-  me: () => apiFetch<{ id: number; email: string }>('/auth/me'),
+  me: () => apiFetch<{ id: number; email: string; name: string; createdAt: string }>('/auth/me'),
+
+  requestDeletion: () =>
+    apiFetch<{ message: string }>('/auth/request-deletion', { method: 'POST' }),
 };
 
 // --- Exercises ---

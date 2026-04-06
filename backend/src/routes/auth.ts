@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import * as authService from '../services/auth.service';
 import { authMiddleware } from '../middleware/auth';
+import { prisma } from '../lib/prisma';
+import { sendDeletionRequest } from '../lib/mailer';
 
 const router = Router();
 
@@ -94,7 +96,28 @@ router.post('/logout', authMiddleware, async (req: Request, res: Response): Prom
 
 // GET /auth/me
 router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  res.json({ id: req.user!.id, email: req.user!.email });
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { id: true, email: true, name: true, createdAt: true },
+  });
+  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+  res.json(user);
+});
+
+// POST /auth/request-deletion
+router.post('/request-deletion', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { id: true, name: true, email: true },
+  });
+  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+  try {
+    await sendDeletionRequest(user);
+    res.json({ message: 'Demande envoyée' });
+  } catch {
+    res.status(500).json({ error: 'Impossible d\'envoyer l\'email, réessaie plus tard.' });
+  }
 });
 
 export default router;
