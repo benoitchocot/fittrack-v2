@@ -115,7 +115,8 @@ router.post('/request-deletion', authMiddleware, async (req: Request, res: Respo
   try {
     await sendDeletionRequest(user);
     res.json({ message: 'Demande envoyée' });
-  } catch {
+  } catch (err) {
+    console.error('[request-deletion] Échec envoi mail:', err);
     res.status(500).json({ error: 'Impossible d\'envoyer l\'email, réessaie plus tard.' });
   }
 });
