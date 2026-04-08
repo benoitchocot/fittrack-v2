@@ -29,22 +29,12 @@ function computeElapsed(startedAt: string, pausedAt: string | null, pausedDurati
 
 type SetRow = { weight: string; reps: string; savedId: number | null };
 
-function initRows(
-  defaultSets: number | null,
-  defaultReps: number | null,
-  defaultWeight: number | null,
-  savedSets: WorkoutSet[],
-  lastSets: Array<{ weight: number; reps: number }>,
-): SetRow[] {
+function initRows(defaultSets: number | null, savedSets: WorkoutSet[]): SetRow[] {
   if (savedSets.length > 0) {
     return savedSets.map(s => ({ weight: String(s.weight), reps: String(s.reps), savedId: s.id }));
   }
   const count = defaultSets ?? 3;
-  return Array.from({ length: count }, () => ({
-    weight: '',
-    reps: '',
-    savedId: null,
-  }));
+  return Array.from({ length: count }, () => ({ weight: '', reps: '', savedId: null }));
 }
 
 // ─── ExercisePicker ──────────────────────────────────────────────────────────
@@ -127,13 +117,13 @@ function ExerciseBlock({
   isActive, allExercises, onSetsChange, onReplace,
 }: ExerciseBlockProps) {
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<SetRow[]>(() => initRows(defaultSets, defaultReps, defaultWeight, savedSets, lastSets));
+  const [rows, setRows] = useState<SetRow[]>(() => initRows(defaultSets, savedSets));
   const [replacing, setReplacing] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     setRows(prev => {
-      if (prev.length === 0) return initRows(defaultSets, defaultReps, defaultWeight, savedSets, lastSets);
+      if (prev.length === 0) return initRows(defaultSets, savedSets);
       const validIds = new Set(savedSets.map(s => s.id));
       return prev.map(r => ({
         ...r,
