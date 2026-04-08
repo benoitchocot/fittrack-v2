@@ -9,6 +9,7 @@ interface ExerciseEntry {
   sets: string;
   reps: string;
   weight: string;
+  comment: string;
 }
 
 export default function TemplatesPage() {
@@ -39,6 +40,7 @@ export default function TemplatesPage() {
         sets: e.sets ? parseInt(e.sets) : undefined,
         reps: e.reps ? parseInt(e.reps) : undefined,
         weight: e.weight ? parseFloat(e.weight) : undefined,
+        comment: e.comment || undefined,
       })),
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['templates'] }); closeForm(); },
@@ -52,6 +54,7 @@ export default function TemplatesPage() {
         sets: e.sets ? parseInt(e.sets) : undefined,
         reps: e.reps ? parseInt(e.reps) : undefined,
         weight: e.weight ? parseFloat(e.weight) : undefined,
+        comment: e.comment || undefined,
       })),
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['templates'] }); closeForm(); },
@@ -81,6 +84,7 @@ export default function TemplatesPage() {
         sets: te.sets != null ? String(te.sets) : '',
         reps: te.reps != null ? String(te.reps) : '',
         weight: te.weight != null ? String(te.weight) : '',
+        comment: te.comment ?? '',
       })),
     );
     setSearch('');
@@ -97,7 +101,7 @@ export default function TemplatesPage() {
   function addExercise(id: number, exName: string) {
     if (selectedExercises.find(e => e.exerciseId === id)) return;
     const newIdx = selectedExercises.length;
-    setSelectedExercises(prev => [...prev, { exerciseId: id, name: exName, sets: '3', reps: '', weight: '' }]);
+    setSelectedExercises(prev => [...prev, { exerciseId: id, name: exName, sets: '3', reps: '', weight: '', comment: '' }]);
     setExpandedIdx(newIdx);
     setSearch('');
   }
@@ -107,7 +111,7 @@ export default function TemplatesPage() {
     if (expandedIdx === idx) setExpandedIdx(null);
   }
 
-  function updateField(idx: number, field: 'sets' | 'reps' | 'weight', value: string) {
+  function updateField(idx: number, field: 'sets' | 'reps' | 'weight' | 'comment', value: string) {
     setSelectedExercises(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
   }
 
@@ -174,7 +178,7 @@ export default function TemplatesPage() {
                       <button onClick={() => removeExercise(idx)} className="text-gray-600 hover:text-red-400 transition-colors ml-3 text-sm">×</button>
                     </div>
                     {expandedIdx === idx && (
-                      <div className="px-3 pb-3 border-t border-gray-700 pt-3">
+                      <div className="px-3 pb-3 border-t border-gray-700 pt-3 space-y-2">
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <label className="text-xs text-gray-400 block mb-1">Séries</label>
@@ -212,6 +216,16 @@ export default function TemplatesPage() {
                               className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-sm text-center focus:outline-none focus:border-indigo-500"
                             />
                           </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-400 block mb-1">Commentaire</label>
+                          <textarea
+                            value={entry.comment}
+                            onChange={e => updateField(idx, 'comment', e.target.value)}
+                            placeholder="Consignes, tempo, note technique…"
+                            rows={2}
+                            className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-indigo-500 resize-none"
+                          />
                         </div>
                       </div>
                     )}
@@ -296,6 +310,9 @@ export default function TemplatesPage() {
                         </p>
                       )}
                     </div>
+                    {te.comment && (
+                      <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{te.comment}</p>
+                    )}
                   </div>
                 ))}
               </div>

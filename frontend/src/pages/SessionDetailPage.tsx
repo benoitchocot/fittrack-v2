@@ -40,9 +40,9 @@ function initRows(
     return savedSets.map(s => ({ weight: String(s.weight), reps: String(s.reps), savedId: s.id }));
   }
   const count = defaultSets ?? 3;
-  return Array.from({ length: count }, (_, i) => ({
-    weight: lastSets[i] ? String(lastSets[i]!.weight) : (defaultWeight != null ? String(defaultWeight) : ''),
-    reps: lastSets[i] ? String(lastSets[i]!.reps) : (defaultReps != null ? String(defaultReps) : ''),
+  return Array.from({ length: count }, () => ({
+    weight: '',
+    reps: '',
     savedId: null,
   }));
 }
@@ -107,6 +107,7 @@ interface ExerciseBlockProps {
   exerciseId: number;
   name: string;
   muscleGroup: string;
+  comment: string | null;
   defaultSets: number | null;
   defaultReps: number | null;
   defaultWeight: number | null;
@@ -120,7 +121,7 @@ interface ExerciseBlockProps {
 }
 
 function ExerciseBlock({
-  sessionId, exerciseId, name, muscleGroup,
+  sessionId, exerciseId, name, muscleGroup, comment,
   defaultSets, defaultReps, defaultWeight,
   savedSets, lastSets, lastSessionDate,
   isActive, allExercises, onSetsChange, onReplace,
@@ -234,6 +235,13 @@ function ExerciseBlock({
             />
           )}
 
+          {/* Exercise comment */}
+          {comment && (
+            <div className="text-xs text-indigo-300/80 bg-indigo-950/40 border border-indigo-900/40 rounded-lg px-3 py-2 whitespace-pre-line">
+              {comment}
+            </div>
+          )}
+
           {/* Last session reference */}
           {lastSets.length > 0 && lastSessionDate && (
             <div className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2">
@@ -258,7 +266,7 @@ function ExerciseBlock({
                   value={row.weight}
                   onChange={e => updateRow(idx, 'weight', e.target.value)}
                   type="number"
-                  placeholder="—"
+                  placeholder={defaultWeight != null ? String(defaultWeight) : '—'}
                   disabled={!!row.savedId}
                   className="w-full min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm text-center focus:outline-none focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
@@ -266,7 +274,7 @@ function ExerciseBlock({
                   value={row.reps}
                   onChange={e => updateRow(idx, 'reps', e.target.value)}
                   type="number"
-                  placeholder="—"
+                  placeholder={defaultReps != null ? String(defaultReps) : '—'}
                   disabled={!!row.savedId}
                   className="w-full min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm text-center focus:outline-none focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
@@ -491,6 +499,7 @@ export default function SessionDetailPage() {
                 exerciseId={se.exerciseId}
                 name={se.name}
                 muscleGroup={se.muscleGroupName}
+                comment={se.comment ?? null}
                 defaultSets={se.sets ?? null}
                 defaultReps={se.reps ?? null}
                 defaultWeight={se.weight ?? null}
@@ -524,6 +533,7 @@ export default function SessionDetailPage() {
                 exerciseId={exerciseId}
                 name={ex.name}
                 muscleGroup={ex.muscleGroup.name}
+                comment={null}
                 defaultSets={null}
                 defaultReps={null}
                 defaultWeight={null}
