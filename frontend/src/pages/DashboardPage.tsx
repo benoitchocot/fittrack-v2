@@ -37,7 +37,6 @@ export default function DashboardPage() {
   const completedSessions = sessionList.filter(s => s.status === 'completed');
   const weekSessions = getWeekSessions(completedSessions);
   const lastSession = completedSessions[0] ?? null;
-  const totalSetsThisWeek = weekSessions.reduce((acc, s) => acc + s.sets.length, 0);
 
   if (isLoading) {
     return <div className="text-gray-400">Chargement...</div>;
@@ -88,14 +87,10 @@ export default function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <p className="text-gray-400 text-sm">Séances cette semaine</p>
           <p className="text-3xl font-bold text-white mt-1">{weekSessions.length}</p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-sm">Séries cette semaine</p>
-          <p className="text-3xl font-bold text-white mt-1">{totalSetsThisWeek}</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <p className="text-gray-400 text-sm">Total séances</p>
