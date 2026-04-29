@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { sessions } from '../lib/api';
-import type { WorkoutSession } from '../lib/types';
+import { Link, useNavigate } from 'react-router-dom';
+import { sessions, templates } from '../lib/api';
+import type { WorkoutSession, WorkoutTemplate } from '../lib/types';
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('fr-FR', {
@@ -17,6 +17,7 @@ function getWeekSessions(sessionList: WorkoutSession[]) {
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: sessionList = [], isLoading } = useQuery({
@@ -29,9 +30,34 @@ export default function DashboardPage() {
     queryFn: sessions.getActive,
   });
 
+  const { data: templateList = [] } = useQuery({
+    queryKey: ['templates'],
+    queryFn: templates.list,
+  });
+
   const abandonMutation = useMutation({
     mutationFn: () => sessions.delete(activeSession!.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sessions'] }),
+  });
+
+  const startMutation = useMutation({
+    mutationFn: (template: WorkoutTemplate) =>
+      sessions.create({
+        name: template.name,
+        exercises: template.exercises.map(te => ({
+          exerciseId: te.exerciseId,
+          name: te.exercise.name,
+          muscleGroupName: te.exercise.muscleGroup.name,
+          sets: te.sets ?? null,
+          reps: te.reps ?? null,
+          weight: te.weight ?? null,
+          comment: te.comment ?? null,
+        })),
+      }),
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      navigate(`/sessions/${session.id}`);
+    },
   });
 
   const completedSessions = sessionList.filter(s => s.status === 'completed');
@@ -44,15 +70,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <Link
-          to="/sessions/new"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm"
-        >
-          + Nouvelle séance
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold text-white">Accueil</h1>
 
       {/* Active session card */}
       {activeSession && (
@@ -82,6 +100,70 @@ export default function DashboardPage() {
             >
               Abandonner
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Templates */}
+      {templateList.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Démarrer une séance
+          </h2>
+          {activeSession ? (
+            <p className="text-xs text-amber-400/80">
+              Termine ou abandonne la séance en cours avant d'en démarrer une nouvelle.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {templateList.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  onClick={() => startMutation.mutate(tpl)}
+                  disabled={startMutation.isPending}
+                  className="bg-gray-900 border border-gray-800 hover:border-indigo-500 hover:bg-gray-800/80 rounded-xl p-4 text-left transition-all disabled:opacity-50 group active:scale-95"
+                >
+                  <p className="font-semibold text-white group-hover:text-indigo-300 transition-colors truncate">
+                    {tpl.name}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {tpl.exercises.length} exercice{tpl.exercises.length > 1 ? 's' : ''}
+                  </p>
+                  <div className="mt-2 space-y-0.5">
+                    {tpl.exercises.slice(0, 3).map((te) => (
+                      <p key={te.id} className="text-xs text-gray-600 truncate">
+                        {te.exercise.name}
+                      </p>
+                    ))}
+                    {tpl.exercises.length > 3 && (
+                      <p className="text-xs text-gray-600">+{tpl.exercises.length - 3} autres</p>
+                    )}
+                  </div>
+                </button>
+              ))}
+              <Link
+                to="/templates"
+                className="bg-gray-900/50 border border-dashed border-gray-700 hover:border-indigo-700 rounded-xl p-4 flex flex-col items-center justify-center gap-1 text-gray-600 hover:text-indigo-400 transition-all"
+              >
+                <span className="text-xl">+</span>
+                <span className="text-xs text-center leading-tight">Créer un template</span>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {templateList.length === 0 && !activeSession && (
+        <div className="bg-gray-900/50 border border-dashed border-gray-800 rounded-xl p-6 text-center space-y-2">
+          <p className="text-gray-400 text-sm font-medium">Aucun template</p>
+          <p className="text-gray-600 text-xs">Crée des templates pour démarrer une séance en un clic</p>
+          <div className="flex justify-center gap-3 pt-1">
+            <Link to="/templates" className="text-indigo-400 hover:text-indigo-300 text-xs transition-colors">
+              Créer un template →
+            </Link>
+            <Link to="/sessions/new" className="text-gray-500 hover:text-gray-400 text-xs transition-colors">
+              Séance libre
+            </Link>
           </div>
         </div>
       )}

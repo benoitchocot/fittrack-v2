@@ -1,17 +1,16 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 const navItems = [
-  { to: '/',           label: 'Accueil',    exact: true,  icon: '⊞' },
-  { to: '/sessions',   label: 'Séances',    exact: false, icon: '📋' },
-  { to: '/templates',  label: 'Templates',  exact: false, icon: '📌' },
-  { to: '/exercises',  label: 'Exercices',  exact: false, icon: '💪' },
-  { to: '/profile',    label: 'Profil',     exact: false, icon: '👤' },
+  { to: '/',              label: 'Accueil',      exact: true,  icon: '⊞' },
+  { to: '/performances',  label: 'Performances', exact: false, icon: '📈' },
+  { to: '/templates',     label: 'Templates',    exact: false, icon: '📌' },
+  { to: '/exercises',     label: 'Exercices',    exact: false, icon: '💪' },
+  { to: '/profile',       label: 'Profil',       exact: false, icon: '👤' },
 ];
 
 export default function Layout() {
   const { logout } = useAuth();
-  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 md:pb-0 overflow-x-hidden" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
@@ -45,14 +44,11 @@ export default function Layout() {
       </nav>
 
       {/* Mobile top bar */}
-      <div className="md:hidden bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+      <div
+        className="md:hidden bg-gray-900 border-b border-gray-800 px-4 pb-3 flex items-center"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+      >
         <span className="font-bold text-white">FitTrack</span>
-        <button
-          onClick={() => navigate('/sessions/new')}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-        >
-          + Séance
-        </button>
       </div>
 
       {/* Page content */}

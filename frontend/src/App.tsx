@@ -12,6 +12,7 @@ import SessionDetailPage from './pages/SessionDetailPage';
 import NewSessionPage from './pages/NewSessionPage';
 import ExercisesPage from './pages/ExercisesPage';
 import ProgressionPage from './pages/ProgressionPage';
+import PerformancesPage from './pages/PerformancesPage';
 import ProfilePage from './pages/ProfilePage';
 import TemplatesPage from './pages/TemplatesPage';
 
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="sessions/new" element={<NewSessionPage />} />
           <Route path="sessions/:id" element={<SessionDetailPage />} />
+          <Route path="performances" element={<PerformancesPage />} />
           <Route path="templates" element={<TemplatesPage />} />
           <Route path="exercises" element={<ExercisesPage />} />
           <Route path="progression" element={<ProgressionPage />} />
