@@ -115,6 +115,8 @@ interface ExerciseBlockProps {
   allExercises: Exercise[];
   onSetsChange: () => void;
   onReplace: (newExercise: Exercise) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 function ExerciseBlock({
@@ -122,6 +124,7 @@ function ExerciseBlock({
   defaultSets, defaultReps, defaultWeight,
   savedSets, lastSets, lastSessionDate,
   isActive, allExercises, onSetsChange, onReplace,
+  onMoveUp, onMoveDown,
 }: ExerciseBlockProps) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<SetRow[]>(() => initRows(defaultSets, savedSets, lastSets));
@@ -210,6 +213,22 @@ function ExerciseBlock({
             <span className={`text-gray-400 transition-transform text-sm ${open ? 'rotate-90' : ''}`}>›</span>
           </div>
         </button>
+        {(onMoveUp || onMoveDown) && (
+          <div className="flex flex-col pr-1 py-1 shrink-0">
+            <button
+              onClick={onMoveUp}
+              disabled={!onMoveUp}
+              className="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-300 disabled:opacity-20 transition-colors"
+              title="Monter"
+            >↑</button>
+            <button
+              onClick={onMoveDown}
+              disabled={!onMoveDown}
+              className="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-300 disabled:opacity-20 transition-colors"
+              title="Descendre"
+            >↓</button>
+          </div>
+        )}
         {isActive && (
           <button
             onClick={() => { setReplacing(v => !v); setOpen(true); }}
@@ -418,6 +437,14 @@ export default function SessionDetailPage() {
       .map(s => s.exerciseId)
   )];
 
+  function handleMoveExercise(idx: number, direction: 'up' | 'down') {
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= plannedExercises.length) return;
+    const next = [...plannedExercises];
+    [next[idx], next[swapIdx]] = [next[swapIdx]!, next[idx]!];
+    updateExercisesMutation.mutate(next);
+  }
+
   function handleReplaceExercise(idx: number, newExercise: Exercise) {
     const updated = plannedExercises.map((e, i) =>
       i === idx
@@ -507,6 +534,8 @@ export default function SessionDetailPage() {
                 allExercises={allExercises}
                 onSetsChange={() => setTick(t => t + 1)}
                 onReplace={(newEx) => handleReplaceExercise(idx, newEx)}
+                onMoveUp={idx > 0 ? () => handleMoveExercise(idx, 'up') : undefined}
+                onMoveDown={idx < plannedExercises.length - 1 ? () => handleMoveExercise(idx, 'down') : undefined}
               />
             );
           })}

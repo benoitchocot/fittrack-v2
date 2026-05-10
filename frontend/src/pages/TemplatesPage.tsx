@@ -111,6 +111,18 @@ export default function TemplatesPage() {
     if (expandedIdx === idx) setExpandedIdx(null);
   }
 
+  function moveExercise(idx: number, direction: 'up' | 'down') {
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    setSelectedExercises(prev => {
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swapIdx]] = [next[swapIdx]!, next[idx]!];
+      return next;
+    });
+    if (expandedIdx === idx) setExpandedIdx(swapIdx);
+    else if (expandedIdx === swapIdx) setExpandedIdx(idx);
+  }
+
   function updateField(idx: number, field: 'sets' | 'reps' | 'weight' | 'comment', value: string) {
     setSelectedExercises(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
   }
@@ -175,7 +187,21 @@ export default function TemplatesPage() {
                           </span>
                         )}
                       </button>
-                      <button onClick={() => removeExercise(idx)} className="text-gray-600 hover:text-red-400 transition-colors ml-3 text-sm">×</button>
+                      <div className="flex items-center gap-1 ml-2 shrink-0">
+                        <button
+                          onClick={() => moveExercise(idx, 'up')}
+                          disabled={idx === 0}
+                          className="text-gray-600 hover:text-gray-300 disabled:opacity-20 transition-colors text-xs px-1"
+                          title="Monter"
+                        >↑</button>
+                        <button
+                          onClick={() => moveExercise(idx, 'down')}
+                          disabled={idx === selectedExercises.length - 1}
+                          className="text-gray-600 hover:text-gray-300 disabled:opacity-20 transition-colors text-xs px-1"
+                          title="Descendre"
+                        >↓</button>
+                        <button onClick={() => removeExercise(idx)} className="text-gray-600 hover:text-red-400 transition-colors ml-1 text-sm">×</button>
+                      </div>
                     </div>
                     {expandedIdx === idx && (
                       <div className="px-3 pb-3 border-t border-gray-700 pt-3 space-y-2">
