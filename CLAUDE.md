@@ -257,6 +257,16 @@ PostgreSQL en prod doit utiliser un **volume nommé Docker** (pas un bind mount)
 
 ---
 
+## Structure du dépôt Git
+
+Le dossier racine `fittrack-v2/` est un **monorepo Git unique**. Il ne contient que deux sous-projets :
+- `backend/` — API Node.js/Express/Prisma
+- `frontend/` — Application Vite/React + app Android (Capacitor)
+
+**Toutes les opérations Git se font depuis la racine** (`git add`, `git commit`, `git push`). Il n'y a pas de sous-repo Git dans `backend/` ou `frontend/`. Un seul remote, un seul historique.
+
+---
+
 ## Commandes utiles
 
 ```bash
@@ -267,4 +277,17 @@ cd backend && npx prisma studio   # Interface visuelle de la DB
 
 # Build prod
 docker compose -f docker-compose.prod.yml up -d --build
+
+# Build Android (depuis frontend/)
+npm run build                     # Build Vite
+npx cap sync android              # Sync Capacitor
+cd android && .\gradlew assembleRelease   # APK → app/build/outputs/apk/release/
+cd android && .\gradlew bundleRelease     # AAB → app/build/outputs/bundle/release/
 ```
+
+### Avant chaque build Android
+Incrémenter dans `frontend/android/app/build.gradle` :
+- `versionCode` : +1
+- `versionName` : +0.1
+
+Commiter + pusher le bump **avant** de builder.
