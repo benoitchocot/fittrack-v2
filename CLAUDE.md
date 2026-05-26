@@ -278,11 +278,12 @@ cd backend && npx prisma studio   # Interface visuelle de la DB
 # Build prod
 docker compose -f docker-compose.prod.yml up -d --build
 
-# Build Android (depuis frontend/)
-npm run build                     # Build Vite
-npx cap sync android              # Sync Capacitor
-cd android && .\gradlew assembleRelease   # APK → app/build/outputs/apk/release/
-cd android && .\gradlew bundleRelease     # AAB → app/build/outputs/bundle/release/
+# Build Android — TOUJOURS utiliser ces commandes exactes (depuis la racine du repo)
+# build:android force VITE_API_URL=https://apimuscuv2.chocot.be, évite le localhost:3001 du container dev
+docker compose exec frontend npm run build:android   # Build Vite avec l'URL prod
+docker compose exec frontend npx cap sync android    # Sync Capacitor
+cd frontend/android && .\gradlew assembleRelease     # APK → app/build/outputs/apk/release/
+cd frontend/android && .\gradlew bundleRelease       # AAB → app/build/outputs/bundle/release/
 ```
 
 ### Avant chaque build Android

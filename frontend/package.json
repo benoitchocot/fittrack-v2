@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx",
     "cap:sync": "npx cap sync android",
-    "cap:build": "npm run build && npx cap sync android"
+    "cap:build": "npm run build && npx cap sync android",
+    "build:android": "VITE_API_URL=https://apimuscuv2.chocot.be tsc && vite build"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
