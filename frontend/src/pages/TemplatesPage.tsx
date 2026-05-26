@@ -161,6 +161,13 @@ export default function TemplatesPage() {
     !selectedExercises.find((s, i) => s.exerciseId === e.id && i !== replacingIdx),
   );
 
+  const groupedReplaceExercises = filteredReplaceExercises.reduce((acc, ex) => {
+    const g = ex.muscleGroup.name;
+    if (!acc[g]) acc[g] = [];
+    acc[g]!.push(ex);
+    return acc;
+  }, {} as Record<string, typeof exerciseList>);
+
   if (isLoading) return <div className="text-gray-400">Chargement...</div>;
 
   return (
@@ -172,7 +179,7 @@ export default function TemplatesPage() {
         </button>
       </div>
 
-      {/* Modal */}
+      {/* Edit/Create modal */}
       {showForm && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -226,76 +233,34 @@ export default function TemplatesPage() {
                         </button>
                       </div>
 
-                      {/* Exercise name or replace search */}
-                      <div className="flex-1 min-w-0 relative">
-                        {replacingIdx === idx ? (
-                          <>
-                            <input
-                              autoFocus
-                              value={replaceSearch}
-                              onChange={e => setReplaceSearch(e.target.value)}
-                              placeholder="Rechercher un exercice…"
-                              className="w-full bg-gray-700 border border-indigo-500 rounded px-2 py-1.5 text-white text-sm focus:outline-none"
-                              onClick={e => e.stopPropagation()}
-                            />
-                            {replaceSearch && (
-                              <div className="absolute left-0 right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg max-h-40 overflow-y-auto z-10 shadow-xl">
-                                {filteredReplaceExercises.slice(0, 8).map(ex => (
-                                  <button
-                                    key={ex.id}
-                                    onClick={() => replaceExercise(idx, ex.id, ex.name)}
-                                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700 transition-colors flex justify-between gap-2"
-                                  >
-                                    <span>{ex.name}</span>
-                                    <span className="text-xs text-gray-500 shrink-0">{ex.muscleGroup.name}</span>
-                                  </button>
-                                ))}
-                                {filteredReplaceExercises.length === 0 && (
-                                  <p className="px-3 py-2 text-sm text-gray-500">Aucun résultat</p>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
-                            className="w-full text-left text-sm text-white hover:text-indigo-300 transition-colors truncate"
-                          >
-                            {entry.name}
-                            {(entry.sets || entry.reps) && (
-                              <span className="ml-2 text-xs text-gray-500">
-                                {entry.sets && `${entry.sets} séries`}
-                                {entry.sets && entry.reps && ' · '}
-                                {entry.reps && `${entry.reps} reps`}
-                                {entry.weight && ` · ${entry.weight} kg`}
-                              </span>
-                            )}
-                          </button>
-                        )}
+                      {/* Exercise name */}
+                      <div className="flex-1 min-w-0">
+                        <button
+                          onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                          className="w-full text-left text-sm text-white hover:text-indigo-300 transition-colors truncate"
+                        >
+                          {entry.name}
+                          {(entry.sets || entry.reps) && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              {entry.sets && `${entry.sets} séries`}
+                              {entry.sets && entry.reps && ' · '}
+                              {entry.reps && `${entry.reps} reps`}
+                              {entry.weight && ` · ${entry.weight} kg`}
+                            </span>
+                          )}
+                        </button>
                       </div>
 
-                      {/* Replace / cancel replace */}
-                      {replacingIdx === idx ? (
-                        <button
-                          onClick={cancelReplace}
-                          className="h-9 w-9 shrink-0 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
-                          title="Annuler"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => { setReplacingIdx(idx); setReplaceSearch(''); }}
-                          className="h-9 w-9 shrink-0 flex items-center justify-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700 rounded-lg transition-colors"
-                          title="Remplacer l'exercice"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
-                          </svg>
-                        </button>
-                      )}
+                      {/* Replace */}
+                      <button
+                        onClick={() => { setReplacingIdx(idx); setReplaceSearch(''); }}
+                        className="h-9 w-9 shrink-0 flex items-center justify-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700 rounded-lg transition-colors"
+                        title="Remplacer l'exercice"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
+                        </svg>
+                      </button>
 
                       {/* Delete */}
                       <button
@@ -309,7 +274,7 @@ export default function TemplatesPage() {
                       </button>
                     </div>
 
-                    {expandedIdx === idx && replacingIdx !== idx && (
+                    {expandedIdx === idx && (
                       <div className="px-3 pb-3 border-t border-gray-700 pt-3 space-y-2">
                         <div className="grid grid-cols-3 gap-2">
                           <div>
@@ -404,6 +369,84 @@ export default function TemplatesPage() {
               <button onClick={closeForm} className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors">
                 Annuler
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Replace exercise sub-modal */}
+      {showForm && replacingIdx !== null && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/60"
+          onClick={cancelReplace}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-lg flex flex-col shadow-2xl"
+            style={{ maxHeight: '72vh' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 shrink-0">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Remplacer</p>
+                <p className="text-sm font-semibold text-white truncate mt-0.5">
+                  {selectedExercises[replacingIdx]?.name}
+                </p>
+              </div>
+              <button
+                onClick={cancelReplace}
+                className="ml-3 h-8 w-8 shrink-0 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-4 py-3 border-b border-gray-700 shrink-0">
+              <input
+                autoFocus
+                value={replaceSearch}
+                onChange={e => setReplaceSearch(e.target.value)}
+                placeholder="Rechercher un exercice…"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {/* Exercise list */}
+            <div className="overflow-y-auto flex-1">
+              {filteredReplaceExercises.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-gray-500">Aucun résultat</p>
+              ) : replaceSearch ? (
+                filteredReplaceExercises.map(ex => (
+                  <button
+                    key={ex.id}
+                    onClick={() => replaceExercise(replacingIdx, ex.id, ex.name)}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-800 transition-colors flex items-center justify-between gap-3 border-b border-gray-800 last:border-0"
+                  >
+                    <span className="text-sm text-white">{ex.name}</span>
+                    <span className="text-xs text-gray-500 shrink-0">{ex.muscleGroup.name}</span>
+                  </button>
+                ))
+              ) : (
+                Object.entries(groupedReplaceExercises).map(([group, exs]) => (
+                  <div key={group}>
+                    <p className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-800/80 sticky top-0">
+                      {group}
+                    </p>
+                    {exs.map(ex => (
+                      <button
+                        key={ex.id}
+                        onClick={() => replaceExercise(replacingIdx, ex.id, ex.name)}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-800 transition-colors text-sm text-white border-b border-gray-800 last:border-0"
+                      >
+                        {ex.name}
+                      </button>
+                    ))}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
