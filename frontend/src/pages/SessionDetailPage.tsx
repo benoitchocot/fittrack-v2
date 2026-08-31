@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { sessions, exercises as exercisesApi } from '../lib/api';
+import { useOnline } from '../hooks/useOnline';
 import type { WorkoutSet, SessionExercise, Exercise } from '../lib/types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -332,8 +333,12 @@ export default function SessionDetailPage() {
   const sessionId = parseInt(id ?? '');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const online = useOnline();
   const [tick, setTick] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  // Bumpé quand l'outbox vient d'être vidée : force les blocs d'exercice à se
+  // reconstruire à partir des séries réelles (id serveur au lieu d'id temporaire).
+  const [syncNonce, setSyncNonce] = useState(0);
 
   const { data: session, isLoading } = useQuery({
     queryKey: ['sessions', sessionId],
@@ -349,6 +354,17 @@ export default function SessionDetailPage() {
     queryKey: ['exercises'],
     queryFn: exercisesApi.list,
   });
+
+  // Après une synchro réussie de l'outbox, on recharge la séance et on remonte
+  // les blocs pour repartir des séries réelles.
+  useEffect(() => {
+    const onFlushed = () => {
+      setSyncNonce((n) => n + 1);
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    };
+    window.addEventListener('outbox-flushed', onFlushed);
+    return () => window.removeEventListener('outbox-flushed', onFlushed);
+  }, [queryClient]);
 
   // Timer
   useEffect(() => {
@@ -438,6 +454,7 @@ export default function SessionDetailPage() {
   )];
 
   function handleMoveExercise(idx: number, direction: 'up' | 'down') {
+    if (!online) return; // réorganisation indisponible hors-ligne
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= plannedExercises.length) return;
     const next = [...plannedExercises];
@@ -446,6 +463,7 @@ export default function SessionDetailPage() {
   }
 
   function handleReplaceExercise(idx: number, newExercise: Exercise) {
+    if (!online) return; // remplacement d'exercice indisponible hors-ligne
     const updated = plannedExercises.map((e, i) =>
       i === idx
         ? {
@@ -478,7 +496,8 @@ export default function SessionDetailPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => isPaused ? resumeMutation.mutate() : pauseMutation.mutate()}
-              disabled={pauseMutation.isPending || resumeMutation.isPending}
+              disabled={pauseMutation.isPending || resumeMutation.isPending || !online}
+              title={!online ? 'Indisponible hors ligne' : undefined}
               className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-700 text-gray-300 hover:border-gray-600 hover:text-white transition-colors disabled:opacity-50"
             >
               {isPaused ? '▶ Reprendre' : '⏸ Pause'}
@@ -505,7 +524,9 @@ export default function SessionDetailPage() {
         </div>
         <button
           onClick={() => { if (confirm('Supprimer cette séance ?')) deleteSessionMutation.mutate(); }}
-          className="text-gray-600 hover:text-red-400 text-sm transition-colors"
+          disabled={!online}
+          title={!online ? 'Indisponible hors ligne' : undefined}
+          className="text-gray-600 hover:text-red-400 text-sm transition-colors disabled:opacity-40 disabled:hover:text-gray-600"
         >
           Supprimer
         </button>
@@ -518,7 +539,7 @@ export default function SessionDetailPage() {
             const last = getLastSets(se.exerciseId);
             return (
               <ExerciseBlock
-                key={`${se.exerciseId}-${idx}`}
+                key={`${se.exerciseId}-${idx}-${syncNonce}`}
                 sessionId={sessionId}
                 exerciseId={se.exerciseId}
                 name={se.name}
@@ -530,12 +551,12 @@ export default function SessionDetailPage() {
                 savedSets={getSavedSets(se.exerciseId)}
                 lastSets={last?.sets ?? []}
                 lastSessionDate={last?.date}
-                isActive={isActive}
+                isActive={isActive && online}
                 allExercises={allExercises}
                 onSetsChange={() => setTick(t => t + 1)}
                 onReplace={(newEx) => handleReplaceExercise(idx, newEx)}
-                onMoveUp={idx > 0 ? () => handleMoveExercise(idx, 'up') : undefined}
-                onMoveDown={idx < plannedExercises.length - 1 ? () => handleMoveExercise(idx, 'down') : undefined}
+                onMoveUp={idx > 0 && online ? () => handleMoveExercise(idx, 'up') : undefined}
+                onMoveDown={idx < plannedExercises.length - 1 && online ? () => handleMoveExercise(idx, 'down') : undefined}
               />
             );
           })}
@@ -554,7 +575,7 @@ export default function SessionDetailPage() {
             const ex = saved[0]!.exercise;
             return (
               <ExerciseBlock
-                key={exerciseId}
+                key={`${exerciseId}-${syncNonce}`}
                 sessionId={sessionId}
                 exerciseId={exerciseId}
                 name={ex.name}
@@ -566,7 +587,7 @@ export default function SessionDetailPage() {
                 savedSets={saved}
                 lastSets={last?.sets ?? []}
                 lastSessionDate={last?.date}
-                isActive={isActive}
+                isActive={isActive && online}
                 allExercises={allExercises}
                 onSetsChange={() => setTick(t => t + 1)}
                 onReplace={() => {}} // extra exercises can't be replaced (no planned slot)

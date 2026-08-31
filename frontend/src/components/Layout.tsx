@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useOfflineSync } from '../hooks/useOfflineSync';
+import SyncStatus from './SyncStatus';
 
 const navItems = [
   { to: '/',              label: 'Accueil',      exact: true,  icon: '⊞' },
@@ -11,6 +13,7 @@ const navItems = [
 
 export default function Layout() {
   const { logout } = useAuth();
+  useOfflineSync();
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 md:pb-0 overflow-x-hidden" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
@@ -50,6 +53,8 @@ export default function Layout() {
       >
         <span className="font-bold text-white">FitTrack</span>
       </div>
+
+      <SyncStatus />
 
       {/* Page content */}
       <main className="max-w-5xl mx-auto px-4 py-6">

@@ -11,6 +11,13 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5,
       retry: 1,
+      // On gère nous-mêmes le hors-ligne dans lib/api.ts (cache localStorage +
+      // outbox) : React Query doit donc exécuter ses requêtes même sans réseau
+      // plutôt que de les mettre en pause.
+      networkMode: 'always',
+    },
+    mutations: {
+      networkMode: 'always',
     },
   },
 });
