@@ -280,7 +280,12 @@ export async function flushOutbox(): Promise<void> {
     flushing = false;
   }
 
-  // Resynchronise le snapshot local avec l'état réel du serveur.
+  // File entièrement vidée : on resynchronise le snapshot local avec l'état réel
+  // du serveur et on signale la fin (pour recharger l'écran de séance). Si le
+  // flush a été interrompu, on garde le snapshot local tel quel — il contient
+  // encore les séries pas encore envoyées.
+  if (offline.getOutbox().length > 0) return;
+
   try {
     const active = await sessions.getActive();
     if (active) await sessions.get(active.id);
@@ -288,7 +293,7 @@ export async function flushOutbox(): Promise<void> {
     /* pas grave — sera retenté plus tard */
   }
 
-  if (offline.getOutbox().length === 0 && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('outbox-flushed'));
   }
 }
